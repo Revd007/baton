@@ -9,7 +9,13 @@
     "start": "next start",
     "lint": "next lint",
     "build:server": "tsc --project tsconfig.server.json",
-    "server": "npm run build:server && node dist/server/index.js"
+    "server": "npm run build:server && node dist/server/index.js",
+    "knex": "node --import=tsx ./node_modules/knex/bin/cli.js --knexfile knexfile.ts",
+    "migrate:make": "npm run knex -- migrate:make -x ts",
+    "migrate:latest": "npm run knex -- migrate:latest",
+    "migrate:rollback": "npm run knex -- migrate:rollback",
+    "seed:make": "npm run knex -- seed:make -x ts",
+    "seed:run": "npm run knex -- seed:run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -55,7 +61,7 @@
     "cmdk": "^1.0.0",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.4.5",
     "embla-carousel-react": "^8.3.0",
     "express": "^4.18.3",
     "express-rate-limit": "^7.2.0",
@@ -66,6 +72,7 @@
     "multer": "^1.4.5-lts.1",
     "next": "^15.3.2",
     "next-themes": "^0.3.0",
+    "pg": "^8.12.0",
     "postcss": "8.5.3",
     "puppeteer": "^22.5.0",
     "react": "18.2.0",
@@ -89,7 +96,11 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/multer": "^1.4.11",
     "@types/node": "22.15.18",
+    "@types/pg": "^8.11.6",
     "@types/react": "18.3.21",
+    "knex": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.16.2",
     "typescript": "5.8.3"
   }
 }

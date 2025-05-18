@@ -1,61 +1,63 @@
-"""# Next.js & Express Scraping API Server
+# Next.js Full-Stack Scraping Application
 
-This project combines a Next.js application with a custom Express.js backend server. The backend server provides API endpoints for scraping anime and manga information from external websites and managing streaming/comics content with a Supabase database.
+This project is a Next.js application that includes backend API functionality for scraping anime and manga information from external websites and managing content with a PostgreSQL database.
 
 ## Features
 
 *   **Web Scraping**:
     *   Scrapes anime information from `9animetv.to`.
     *   Scrapes manga, manhwa, and manhua information from `westmanga.me`.
-*   **Express.js API Server**:
+*   **Next.js API Routes**:
     *   Provides dedicated API endpoints for scraped data.
-    *   Endpoints for creating and updating streaming content (e.g., anime, movies) with thumbnail uploads.
-    *   Endpoints for creating and updating comics content (e.g., manga) with cover image uploads.
-*   **Supabase Integration**:
-    *   Uses Supabase for storing and managing streaming and comics content data.
-*   **Secure & Robust**:
-    *   Includes `helmet` for security headers.
-    *   Rate limiting on API requests.
+    *   (Future) Endpoints for creating and updating streaming content (e.g., anime, movies) with thumbnail uploads.
+    *   (Future) Endpoints for creating and updating comics content (e.g., manga) with cover image uploads.
+*   **PostgreSQL Integration**:
+    *   Uses a PostgreSQL database, managed with Knex.js for migrations and queries.
+*   **Secure & Robust (Backend Considerations)**:
+    *   Next.js API routes can be secured (e.g., using libraries like `next-auth` or custom token validation).
+    *   Rate limiting can be implemented using middleware or services if needed.
     *   Uses `dotenv` for managing environment variables.
 *   **TypeScript**:
-    *   Both Next.js app and Express server are written in TypeScript.
+    *   The entire application (frontend and backend) is written in TypeScript.
 
 ## Tech Stack
 
-*   **Frontend**: Next.js, React, Tailwind CSS (Assumed based on typical Next.js setups - can be adjusted)
-*   **Backend**: Express.js
-*   **Database**: Supabase (PostgreSQL)
+*   **Framework**: Next.js (with React)
+*   **Styling**: Tailwind CSS
+*   **Database**: PostgreSQL (with Knex.js for query building and migrations)
 *   **Scraping**: Puppeteer
 *   **Language**: TypeScript
-*   **API Client**: Axios (Assumed)
-*   **File Uploads**: Multer
+*   **API Client (Frontend)**: Fetch API, Axios (Optional)
+*   **File Uploads (Future)**: Handled via Next.js API Routes (e.g., parsing FormData)
 *   **Environment Variables**: `dotenv`
-*   **Security**: `helmet`, `express-rate-limit`
-*   **Styling**: `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate` (from `package.json`)
-*   **UI Components**: Shadcn/UI components (e.g., `@radix-ui/react-*`, `cmdk`, `sonner`, `vaul`) (from `package.json`)
-*   **Forms**: `react-hook-form`, `@hookform/resolvers`, `zod` (from `package.json`)
-*   **Date & Time**: `date-fns` (from `package.json`)
-*   **Icons**: `lucide-react` (from `package.json`)
+*   **UI Components**: Shadcn/UI components (e.g., `@radix-ui/react-*`, `cmdk`, `sonner`, `vaul`)
+*   **Forms**: `react-hook-form`, `@hookform/resolvers`, `zod`
+*   **Date & Time**: `date-fns`
+*   **Icons**: `lucide-react`
 
 ## Project Structure
 
 ```
 /
+|-- app/                   # Next.js App Router directory
+|   |-- api/               # API Routes
+|   |-- (pages)/           # Page components
+|-- components/            # Reusable UI components
 |-- lib/
+|   |-- db.ts              # Knex.js database connection utility
 |   |-- scrapers/
 |       |-- anime.ts       # Logic for scraping anime
 |       |-- manga.ts       # Logic for scraping manga
+|-- db/
+|   |-- migrations/        # Database migration files (Knex.js)
+|   |-- seeds/             # Database seed files (Knex.js)
 |-- public/                # Next.js public assets
-|-- server/
-|   |-- index.ts           # Express server setup and API routes
-|-- components/            # Next.js UI components (Assumed)
-|-- app/                   # Next.js App Router directory (Assumed)
-|-- uploads/               # Directory for uploaded files (thumbnails, covers) - should be in .gitignore
-|-- .env                   # Environment variables (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY) - DO NOT COMMIT
+|-- uploads/               # Directory for uploaded files - should be in .gitignore (if storing locally)
+|-- .env                   # Environment variables (DB_HOST, DB_USER, etc.) - DO NOT COMMIT
+|-- knexfile.ts            # Knex.js configuration
 |-- package.json
 |-- tsconfig.json          # Main TypeScript config for Next.js
-|-- tsconfig.server.json   # TypeScript config for the Express server
-|-- next.config.js         # Next.js configuration (Assumed)
+|-- next.config.js         # Next.js configuration
 |-- README.md              # This file
 ```
 
@@ -70,58 +72,64 @@ This project combines a Next.js application with a custom Express.js backend ser
 2.  **Install dependencies:**
     ```bash
     npm install
-    # or
-    yarn install
-    # or
-    pnpm install
     ```
 
 3.  **Set up Environment Variables:**
-    Create a `.env` file in the root of the project and add your Supabase credentials:
+    Create a `.env` file in the root of the project and add your PostgreSQL connection details:
     ```env
-    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-    SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+    DB_HOST=your_db_host
+    DB_PORT=your_db_port
+    DB_USER=your_db_user
+    DB_PASSWORD=your_db_password
+    DB_NAME=your_db_name
+    # NEXT_PUBLIC_APP_URL=http://localhost:3000 # Optional: For OAuth or other absolute URL needs
 
-    # Optional: Define a port for the server, otherwise it defaults to 3001
-    # PORT=your_desired_port
+    # Variables for Puppeteer if running in restricted environments (e.g., Docker)
+    # PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
     ```
-    Replace `your_supabase_url` and `your_supabase_service_role_key` with your actual Supabase project URL and Service Role Key. The Service Role Key is essential for the backend server to interact with Supabase with admin privileges.
+    Replace with your actual PostgreSQL credentials.
 
-4.  **Ensure `uploads` directory exists (or is created by the app):**
-    The server is configured to save uploaded files to an `uploads/` directory in the project root. You might need to create this directory manually if the application doesn't create it automatically upon first upload.
-    **Important**: Add `uploads/` to your `.gitignore` file to prevent committing uploaded media files to your repository.
+4.  **Set up PostgreSQL Database:**
+    Ensure you have a running PostgreSQL instance and that the database specified in `DB_NAME` exists and the `DB_USER` has permissions to access it.
+
+5.  **Run Database Migrations:**
+    To create the necessary tables (e.g., `users` table):
+    ```bash
+    npm run migrate:latest
+    ```
+
+6.  **Ensure `uploads` directory exists (if storing uploads locally):**
+    If you plan to store uploaded files directly on the server (not recommended for scalable production apps), you might need to create an `uploads/` directory.
+    **Important**: Add `uploads/` to your `.gitignore` file.
 
 ## Available Scripts
 
-*   **`npm run dev`**: Starts the Next.js development server (for the frontend).
+*   **`npm run dev`**: Starts the Next.js development server (serves frontend and API routes).
 *   **`npm run build`**: Builds the Next.js application for production.
 *   **`npm run start`**: Starts the Next.js production server.
 *   **`npm run lint`**: Lints the Next.js application.
-*   **`npm run build:server`**: Compiles the Express.js server TypeScript code to JavaScript (output to `dist/` folder).
-*   **`npm run server`**: Builds the server code and then starts the Express.js backend server. The server typically runs on port 3001 unless a `PORT` environment variable is set.
+*   **Knex Database Migrations & Seeding:**
+    *   **`npm run knex -- <command>`**: Base command to run Knex operations (e.g., `npm run knex -- migrate:status`).
+    *   **`npm run migrate:make -- <migration_name>`**: Creates a new migration file.
+    *   **`npm run migrate:latest`**: Runs all pending migrations.
+    *   **`npm run migrate:rollback`**: Rolls back the last batch of migrations.
+    *   **`npm run seed:make -- <seed_name>`**: Creates a new seed file.
+    *   **`npm run seed:run`**: Runs all seed files.
 
-**To run both frontend and backend for development:**
-*   Open two terminal windows.
-*   In the first terminal, run `npm run server` to start the Express backend.
-*   In the second terminal, run `npm run dev` to start the Next.js frontend.
-
-## API Endpoints (Backend Server - `server/index.ts`)
-
-The Express server exposes the following API endpoints (default prefix `/api`):
+## API Endpoints (Next.js API Routes - `app/api/...`)
 
 *   **Scraping:**
-    *   `GET /api/scrape/anime`: Initiates scraping for anime from `9animetv.to`.
-    *   `GET /api/scrape/manga`: Initiates scraping for manga from `westmanga.me`.
-*   **Streaming Content (e.g., Anime, Movies):**
-    *   `POST /api/stream/create`: Creates new streaming content. Expects `multipart/form-data` for title, type, description, genres, and an optional `thumbnail` file.
-    *   `PUT /api/stream/:id`: Updates existing streaming content by ID. Expects `multipart/form-data`.
-*   **Comics Content (e.g., Manga, Manhwa):**
-    *   `POST /api/comics/create`: Creates new comics content. Expects `multipart/form-data` for title, type, author, description, genres, and an optional `cover` file.
-    *   `PUT /api/comics/:id`: Updates existing comics content by ID. Expects `multipart/form-data`.
+    *   `GET /api/scrape/anime`: Initiates scraping for anime from `9animetv.to`. Returns `AnimeInfo[]`.
+    *   `GET /api/scrape/manga`: Initiates scraping for manga from `westmanga.me`. Returns `MangaInfo[]`.
+*   **(Future) Streaming Content (e.g., Anime, Movies):**
+    *   `POST /api/stream`: Creates new streaming content.
+    *   `PUT /api/stream/:id`: Updates existing streaming content by ID.
+*   **(Future) Comics Content (e.g., Manga, Manhwa):**
+    *   `POST /api/comics`: Creates new comics content.
+    *   `PUT /api/comics/:id`: Updates existing comics content by ID.
 
-Uploaded files are served statically from the `/uploads` route (e.g., `http://localhost:3001/uploads/your-file.jpg`).
+Uploaded files (if stored locally) would typically be placed in the `public` folder or served via a custom route if more control is needed. For production, a dedicated file storage service (e.g., AWS S3, Cloudinary) is recommended.
 
 ---
 
-This README provides a starting point. You can expand it further with more details about specific features, API request/response examples, deployment instructions, etc.
-"" 
+This README provides an updated overview. You can expand it further with more details about specific features, API request/response examples, deployment instructions, etc. 
