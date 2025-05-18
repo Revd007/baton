@@ -10,7 +10,7 @@ interface MangaDetailPageProps {
 
 interface ChapterInfo {
   id: string;
-  chapter_number: string; // Misal "1", "10.5", "Extra"
+  chapter_number: number | null; // Diubah
   title?: string;
   // source_url akan diperlukan untuk membaca chapter
   source_url: string;
@@ -48,8 +48,8 @@ async function getMangaDetails(id: string): Promise<MangaDetailsFromDB | null> {
 
     const chapters = await db('chapters')
       .where({ manga_id: manga.id })
-      .orderBy('chapter_number', 'desc') // Atau 'created_at' desc, sesuaikan urutan
-      .select('id', 'chapter_number', 'title', 'source_url', 'created_at');
+      .orderByRaw('CAST(chapter_number AS FLOAT) DESC NULLS LAST, created_at DESC')
+      .select('id', 'chapter_number', 'title', 'chapter_url as source_url', 'created_at');
     
     return { ...manga, genres, chapters } as MangaDetailsFromDB;
   } catch (error) {
@@ -58,8 +58,8 @@ async function getMangaDetails(id: string): Promise<MangaDetailsFromDB | null> {
   }
 }
 
-export async function generateMetadata({ params }: MangaDetailPageProps) {
-  const manga = await getMangaDetails(params.id);
+export async function generateMetadata({ params: { id } }: MangaDetailPageProps) {
+  const manga = await getMangaDetails(id);
   if (!manga) {
     return { title: "Manga Not Found" };
   }
@@ -69,12 +69,21 @@ export async function generateMetadata({ params }: MangaDetailPageProps) {
    };
 }
 
-export default async function MangaDetailPage({ params }: MangaDetailPageProps) {
-  console.log(`[MangaDetailPage] Page component rendering for id: ${params.id}`);
-  const manga = await getMangaDetails(params.id);
+export default async function MangaDetailPage({ params: { id } }: MangaDetailPageProps) {
+  console.log(`[MangaDetailPage] Page component rendering for id: ${id}`);
+  const manga = await getMangaDetails(id);
+
+  // Log data chapters yang diterima
+  if (manga && manga.chapters) {
+    console.log("[MangaDetailPage] Chapters data received:", JSON.stringify(manga.chapters.map(c => ({ id: c.id, title: c.title, number: c.chapter_number, created_at: c.created_at })), null, 2));
+  } else if (manga) {
+    console.log("[MangaDetailPage] Manga data received, but no chapters found or chapters array is null.");
+  } else {
+    console.log("[MangaDetailPage] No manga data received (manga is null).");
+  }
 
   if (!manga) {
-    console.log(`[MangaDetailPage] Manga not found after getMangaDetails for id: ${params.id}, calling notFound().`);
+    console.log(`[MangaDetailPage] Manga not found after getMangaDetails for id: ${id}, calling notFound().`);
     notFound(); // Ini akan menampilkan halaman 404 default dari Next.js
   }
 
@@ -136,8 +145,15 @@ export default async function MangaDetailPage({ params }: MangaDetailPageProps) 
                 <div>
                   <h3 className="text-lg font-medium text-primary hover:underline">
                     {/* Nanti ini akan menjadi Link ke halaman baca chapter */}
-                    {/* <Link href={`/comics/${params.id}/chapter/${chapter.id}`}> */}
-                      {chapter.title ? `${chapter.chapter_number} - ${chapter.title}` : `Chapter ${chapter.chapter_number}`}
+                    {/* <Link href={`/comics/${id}/chapter/${chapter.id}`}> */}
+                      {(() => {
+                        const num = chapter.chapter_number;
+                        const title = chapter.title;
+                        if (num !== null && title) return `Chapter ${num} - ${title}`;
+                        if (num !== null) return `Chapter ${num}`;
+                        if (title) return title; // Jika hanya ada judul (chapter_number null)
+                        return 'Chapter'; // Fallback jika keduanya tidak ada
+                      })()}
                     {/* </Link> */}
                   </h3>
                   {chapter.created_at && (
@@ -147,7 +163,7 @@ export default async function MangaDetailPage({ params }: MangaDetailPageProps) 
                   )}
                 </div>
                 {/* <Button variant="outline" size="sm" asChild>
-                  <Link href={`/comics/${params.id}/chapter/${chapter.id}`}>Read</Link>
+                  <Link href={`/comics/${id}/chapter/${chapter.id}`}>Read</Link>
                 </Button> */}
               </div>
             ))}

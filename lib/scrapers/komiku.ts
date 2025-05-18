@@ -12,6 +12,7 @@ export interface MangaInfo {
   chapters: {
     id: string; // slug dari URL chapter
     title: string;
+    chapter_number?: number;
     url?: string;
     pages: { id: string; imageUrl: string; }[];
   }[];
@@ -186,7 +187,9 @@ export async function scrapeKomiku(targetUrl: string = 'https://komiku.id/daftar
                 document.querySelectorAll('#Daftar_Chapter td.judulseries a, .eps_lst li a, ul.clstyle li a, .chapterlist li a').forEach(chLinkEl => {
                     const chLink = chLinkEl as HTMLAnchorElement;
                     const chapterUrl = chLink.href;
-                    const chapterTitle = getText(chLink.querySelector('.chapternum, span')) || getText(chLink) ; // Coba ambil dari span di dalam, atau teks link langsung
+                    const chapterTitleText = getText(chLink.querySelector('.chapternum, span')) || getText(chLink); 
+                    const chapterTitle = chapterTitleText.replace(/\s+/g, ' ').trim();
+
                     let chapterId = '';
                     if (chapterUrl) {
                         try {
@@ -197,7 +200,34 @@ export async function scrapeKomiku(targetUrl: string = 'https://komiku.id/daftar
                     if (!chapterId && chapterTitle) { // Fallback ID dari judul jika URL parsing gagal
                         chapterId = chapterTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
                     }
-                    if(chapterId && chapterTitle && chapterUrl) chapters.push({ id: chapterId, title: chapterTitle.trim(), url: chapterUrl, pages: [] });
+
+                    let num = NaN;
+                    const titleForNumberExtraction = chapterTitleText; 
+                    
+                    const primaryMatch = titleForNumberExtraction.match(/(?:ch|chapter|episode|eps|#|bagian|vol|volume|bab)\.?\s*([\d\.-]+)/i);
+                    
+                    if (primaryMatch && primaryMatch[1]) {
+                        num = parseFloat(primaryMatch[1].split('-')[0]);
+                    } else {
+                        const secondaryMatch = titleForNumberExtraction.match(/([\d\.-]+)/);
+                        if (secondaryMatch && secondaryMatch[1]) {
+                            num = parseFloat(secondaryMatch[1].split('-')[0]);
+                        }
+                    }
+
+                    if (isNaN(num)) {
+                        console.warn(`[KomikuScraper-Evaluate] Gagal parse nomor chapter dari teks: "${titleForNumberExtraction}". Judul chapter yang digunakan: "${chapterTitle}"`);
+                    }
+
+                    if(chapterId && chapterTitle && chapterUrl) {
+                        chapters.push({ 
+                            id: chapterId, 
+                            title: chapterTitle, 
+                            chapter_number: isNaN(num) ? undefined : num, 
+                            url: chapterUrl, 
+                            pages: [] 
+                        });
+                    }
                 });
 
                 return { detailTitle, coverImage, author, description, genres, chapters };

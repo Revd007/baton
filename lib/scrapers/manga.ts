@@ -11,6 +11,7 @@ export interface MangaInfo {
   chapters: {
     id: string;
     title: string;
+    chapter_number?: number;
     url?: string;
     pages: { id: string; imageUrl: string; }[];
   }[];
@@ -237,9 +238,28 @@ export async function scrapeManga(targetUrl: string = 'https://westmanga.me'): P
                         }
         
                         if (chapterId && chapterTitle && chapterUrl) {
+                            let num = NaN;
+                            const titleForNumberExtraction = linkElement?.textContent?.trim() || chapterTitle;
+
+                            const primaryMatch = titleForNumberExtraction.match(/(?:ch|chapter|episode|eps|#|bagian|vol|volume|bab)\.?\s*([\d\.-]+)/i);
+                            if (primaryMatch && primaryMatch[1]) {
+                                num = parseFloat(primaryMatch[1].split('-')[0]);
+                            } else {
+                                const numText = getText('.chapternum', ch) || titleForNumberExtraction;
+                                const secondaryMatch = numText.match(/([\d\.-]+)/);
+                                if (secondaryMatch && secondaryMatch[1]) {
+                                    num = parseFloat(secondaryMatch[1].split('-')[0]);
+                                }
+                            }
+
+                            if (isNaN(num)) {
+                                console.warn(`[MangaScraper-Evaluate] Gagal parse nomor chapter dari teks: "${titleForNumberExtraction}". Judul chapter yang digunakan: "${chapterTitle}"`);
+                            }
+
                             chaptersData.push({
                                 id: chapterId,
                                 title: chapterTitle,
+                                chapter_number: isNaN(num) ? undefined : num,
                                 url: chapterUrl,
                                 pages: []
                             });

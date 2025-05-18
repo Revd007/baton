@@ -77,13 +77,26 @@ async function saveKomikuDataToDB(mangaData: MangaInfo[]) {
             const chapterDbId = chapter.id;
             const existingChapter = await trx('chapters').where('chapter_url', chapter.url).first();
             
-            const chapterPayload = {
+            const chapterPayload: { 
+                id: string;
+                manga_id: string;
+                title: string;
+                chapter_url: string;
+                scraped_at: Date;
+                chapter_number?: number | null;
+             } = {
                 id: chapterDbId,
                 manga_id: mangaDbId,
                 title: chapter.title,
                 chapter_url: chapter.url,
                 scraped_at: new Date(),
             };
+
+            if (typeof chapter.chapter_number === 'number' && !isNaN(chapter.chapter_number)) {
+                chapterPayload.chapter_number = chapter.chapter_number;
+            } else {
+                chapterPayload.chapter_number = null;
+            }
 
             if (existingChapter) {
               await trx('chapters').where('id', existingChapter.id).update({
