@@ -14,38 +14,40 @@ async function saveMangaDataToDB(mangaData: MangaInfo[]) {
   for (const manga of mangaData) {
     try {
       await db.transaction(async (trx) => {
-        // 1. Upsert Manga
-        // Kolom 'id' di scraper adalah slug, yang akan kita gunakan sebagai manga.id di DB
         const mangaDbId = manga.id; 
-
-        const existingManga = await trx('mangas').where('source_url', manga.url).first();
 
         const mangaPayload = {
           id: mangaDbId,
-          title: manga.title,
-          source_name: 'westmanga', // Hardcoded untuk sekarang, bisa dibuat dinamis
+          title: manga.title.replace(/^Komik\s+/i, "").trim(), // Bersihkan judul di sini juga
+          source_name: 'westmanga', 
           source_url: manga.url,
           cover_image_url: manga.cover,
           author: manga.author,
           description: manga.description,
           type: manga.type,
           last_scraped_at: new Date(),
+          updated_at: new Date(),
         };
 
-        if (existingManga) {
-          await trx('mangas').where('id', existingManga.id).update({
-            ...mangaPayload,
-            updated_at: new Date(),
-          });
-          console.log(`[DB_SAVE] Updated manga: ${manga.title}`);
-        } else {
-          await trx('mangas').insert({
-            ...mangaPayload,
-            created_at: new Date(),
-            updated_at: new Date(),
-          });
-          console.log(`[DB_SAVE] Inserted new manga: ${manga.title}`);
-        }
+        // Gunakan onConflict.merge() untuk upsert
+        const result = await trx('mangas')
+          .insert({ ...mangaPayload, created_at: new Date() })
+          .onConflict('id')
+          .merge([
+            'title',
+            'source_name', 
+            'source_url',
+            'cover_image_url',
+            'author',
+            'description',
+            'type',
+            'last_scraped_at',
+            'updated_at'
+          ]);
+        
+        // Log bahwa operasi upsert telah dilakukan
+        // Detail spesifik tentang insert vs update tidak selalu mudah didapatkan secara konsisten dari Knex onConflict.merge()
+        console.log(`[DB_SAVE] Upserted manga (or attempted to): ${mangaPayload.title} (ID: ${mangaDbId})`);
 
         // 2. Handle Genres
         if (manga.genres && manga.genres.length > 0) {
@@ -71,28 +73,30 @@ async function saveMangaDataToDB(mangaData: MangaInfo[]) {
         if (manga.chapters && manga.chapters.length > 0) {
           for (const chapter of manga.chapters) {
             const chapterDbId = chapter.id; // Slug chapter
-            const existingChapter = await trx('chapters').where('chapter_url', chapter.url).first();
+            // const existingChapter = await trx('chapters').where('chapter_url', chapter.url).first(); // Cek berdasarkan id chapter dan manga_id
             
             const chapterPayload = {
                 id: chapterDbId,
                 manga_id: mangaDbId,
                 title: chapter.title,
-                chapter_url: chapter.url,
+                chapter_number: chapter.title.match(/Chapter (\d+(\.\d+)?)/i)?.[1] || chapter.title, // Ekstrak nomor chapter jika ada
+                // chapter_url: chapter.url, // Ganti dengan source_url agar konsisten
+                source_url: chapter.url,
                 scraped_at: new Date(),
+                updated_at: new Date(),
             };
 
-            if (existingChapter) {
-              await trx('chapters').where('id', existingChapter.id).update({
-                ...chapterPayload,
-                updated_at: new Date(),
-              });
-            } else {
-              await trx('chapters').insert({
-                ...chapterPayload,
-                created_at: new Date(), 
-                updated_at: new Date(),
-              });
-            }
+            // Upsert Chapter
+            await trx('chapters')
+              .insert({ ...chapterPayload, created_at: new Date() })
+              .onConflict(['id', 'manga_id']) // Asumsi kombinasi id chapter dan manga_id unik
+              .merge([
+                  'title',
+                  'chapter_number',
+                  'source_url',
+                  'scraped_at',
+                  'updated_at'
+              ]);
 
             // 4. Handle Pages for the chapter
             if (chapter.pages && chapter.pages.length > 0) {
@@ -109,7 +113,10 @@ async function saveMangaDataToDB(mangaData: MangaInfo[]) {
               
               if (pagesToInsert.length > 0) {
                  // Batch insert untuk pages
-                await trx('pages').insert(pagesToInsert).onConflict(['chapter_id', 'page_number']).ignore();
+                await trx('pages').insert(pagesToInsert)
+                  // .onConflict(['chapter_id', 'page_number']).ignore(); // Jika ingin update, gunakan merge
+                  .onConflict(['chapter_id', 'page_number'])
+                  .merge(['image_url', 'updated_at']);
               }
             }
           }
