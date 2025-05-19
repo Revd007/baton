@@ -1,6 +1,7 @@
 import db from "@/lib/db";
 import { MangaCardImage } from "@/components/manga-card-image";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 interface MangaDetailPageProps {
   params: {
@@ -75,24 +76,13 @@ export async function generateMetadata(props: MangaDetailPageProps) { // Diubah:
 export default async function MangaDetailPage(props: MangaDetailPageProps) { // Diubah: terima props
   const id = props.params.id; // Diubah: ambil id dari props
 
-  console.log(`[MangaDetailPage] Page component rendering for id (from props): ${id}`);
+  // console.log(`[MangaDetailPage] Page component rendering for id (from props): ${id}`); // Komentari atau hapus log ini jika sudah tidak perlu
   const manga = await getMangaDetails(id);
 
-  // Log data chapters yang diterima
-  if (manga && manga.chapters) {
-    console.log("[MangaDetailPage] Chapters data received:", JSON.stringify(manga.chapters.map(c => ({ id: c.id, title: c.title, number: c.chapter_number, created_at: c.created_at })), null, 2));
-  } else if (manga) {
-    console.log("[MangaDetailPage] Manga data received, but no chapters found or chapters array is null.");
-  } else {
-    console.log("[MangaDetailPage] No manga data received (manga is null).");
-  }
-
   if (!manga) {
-    // console.log(`[MangaDetailPage] Manga not found after getMangaDetails for id: ${id}, calling notFound().`);
     notFound(); 
   }
 
-  // console.log(`[MangaDetailPage] Rendering page for manga: ${manga.title}`);
   return (
     <div className="container mx-auto p-4 md:p-8">
       <div className="grid md:grid-cols-3 gap-8">
@@ -149,17 +139,21 @@ export default async function MangaDetailPage(props: MangaDetailPageProps) { // 
               >
                 <div>
                   <h3 className="text-lg font-medium text-primary hover:underline">
-                    {/* Nanti ini akan menjadi Link ke halaman baca chapter */}
-                    {/* <Link href={`/comics/${id}/chapter/${chapter.id}`}> */}
+                    <Link href={`/comics/${id}/chapter/${chapter.id}`}>
                       {(() => {
                         const num = chapter.chapter_number;
-                        const title = chapter.title;
+                        const title = chapter.title?.trim();
+                        const genericChapterText = "Chapter";
+
+                        if (title && num !== null && title.toLowerCase().includes(`chapter ${num}`)) {
+                          return title; 
+                        }
                         if (num !== null && title) return `Chapter ${num} - ${title}`;
                         if (num !== null) return `Chapter ${num}`;
                         if (title) return title; 
-                        return 'Chapter'; 
+                        return genericChapterText; 
                       })()}
-                    {/* </Link> */}
+                    </Link>
                   </h3>
                   {chapter.created_at && (
                     <p className="text-xs text-muted-foreground">

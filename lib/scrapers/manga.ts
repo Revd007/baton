@@ -13,7 +13,7 @@ export interface MangaInfo {
     title: string;
     chapter_number?: number;
     url?: string;
-    pages: { id: string; imageUrl: string; }[];
+    pages: { imageUrl: string; }[];
   }[];
   url?: string;
   source?: string;
@@ -40,7 +40,7 @@ export async function scrapeManga(initialTargetUrl: string = 'https://westmanga.
     while (currentPageUrl) {
       pageCount++;
       console.log(`[MangaScraper] Scraping page ${pageCount}: ${currentPageUrl}`);
-      await page.goto(currentPageUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+      await page.goto(currentPageUrl, { waitUntil: 'networkidle2', timeout: 900000 });
       console.log(`[MangaScraper] Page loaded: ${currentPageUrl}`);
 
       const mangaListFromCurrentPage = await page.evaluate(() => {
@@ -133,7 +133,7 @@ export async function scrapeManga(initialTargetUrl: string = 'https://westmanga.
       }
       console.log(`[MangaScraper] (${i + 1}/${limitDetailFetch}) Fetching details for: ${manga.title} (ID: ${manga.id}) from ${manga.url}`);
       try {
-        await page.goto(manga.url, { waitUntil: 'networkidle0', timeout: 60000 });
+        await page.goto(manga.url, { waitUntil: 'networkidle2', timeout: 9000000 });
         const details = await page.evaluate(() => {
             const getText = (selector: string, context?: Document | Element): string => {
                 const el = (context || document).querySelector(selector);
@@ -155,7 +155,7 @@ export async function scrapeManga(initialTargetUrl: string = 'https://westmanga.
                 if (description) break;
             }
             let author = '';
-            const authorLabelSelectors = ['.imptdt', '.fmed', '.tsinfo .imptdt', '.infox .fmed', '.spe span', '.tsinfo td', '.entry-content-single table td', 'span:contains("Author")', 'span:contains("Pengarang")'];
+            const authorLabelSelectors = ['.imptdt', '.fmed', '.tsinfo .imptdt', '.infox .fmed', '.spe span', '.tsinfo td', '.entry-content-single table td'];
             for (const labelSelector of authorLabelSelectors) {
                 const elements = Array.from(document.querySelectorAll(labelSelector));
                 for (const el of elements) {
@@ -284,6 +284,62 @@ export async function scrapeManga(initialTargetUrl: string = 'https://westmanga.
         };
         detailedMangaList.push(updatedManga);
         console.log(`[MangaScraper] Successfully fetched details for: ${updatedManga.title} (Chapters: ${updatedManga.chapters.length})`);
+
+        // Fetch pages for each chapter
+        if (updatedManga.chapters && updatedManga.chapters.length > 0 && page) {
+            console.log(`[MangaScraper] Attempting to fetch pages for ${updatedManga.chapters.length} chapters of "${updatedManga.title}"`);
+            for (let chIdx = 0; chIdx < updatedManga.chapters.length; chIdx++) {
+                const chapterToFetch = updatedManga.chapters[chIdx];
+                if (!chapterToFetch.url) {
+                    console.warn(`[MangaScraper] Chapter "${chapterToFetch.title}" has no URL, skipping page fetching.`);
+                    continue;
+                }
+                console.log(`[MangaScraper] (${chIdx + 1}/${updatedManga.chapters.length}) Fetching pages for chapter: "${chapterToFetch.title}" from ${chapterToFetch.url}`);
+                try {
+                    await page.goto(chapterToFetch.url, { waitUntil: 'networkidle2', timeout: 75000 });
+                    
+                    await page.evaluate(async () => { // Scroll logic
+                        await new Promise<void>((resolve) => {
+                            let totalHeight = 0; const distance = 200; const timer = setInterval(() => {
+                                const scrollHeight = document.body.scrollHeight; window.scrollBy(0, distance); totalHeight += distance;
+                                if (totalHeight >= scrollHeight - window.innerHeight) { clearInterval(timer); resolve(); }
+                            }, 100);
+                        });
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    const chapterPages = await page.evaluate(() => {
+                        const pageImageSelectors = [
+                            '.reader-area img', '#readerarea img', '.comic_page img', '.wp-block-image img',
+                            '.ts-main-image', '#imagen_actual', '.main-img', '.reading-content img',
+                            '.page-break img', '.iv-card img[src]', '#Baca_Komik img' // Menambahkan selector dari komiku juga untuk generalisasi
+                        ];
+                        const images: { imageUrl: string }[] = [];
+                        const currentOrigin = new URL(document.URL).origin;
+                        for (const selector of pageImageSelectors) {
+                            const elements = Array.from(document.querySelectorAll(selector));
+                            if (elements.length > 0) {
+                                elements.forEach(img => {
+                                    const src = img.getAttribute('src') || img.getAttribute('data-src');
+                                    if (src && (src.startsWith('http') || src.startsWith('/'))) {
+                                        const absoluteSrc = src.startsWith('/') ? `${currentOrigin}${src}` : src;
+                                        images.push({ imageUrl: absoluteSrc.trim() });
+                                    }
+                                });
+                                if(images.length > 0) break; 
+                            }
+                        }
+                        return images.filter((page, index, self) => index === self.findIndex((p) => p.imageUrl === page.imageUrl));
+                    });
+                    updatedManga.chapters[chIdx].pages = chapterPages; // Assign ke updatedManga
+                    console.log(`[MangaScraper] Fetched ${chapterPages.length} pages for chapter "${chapterToFetch.title}".`);
+                } catch (pageError) {
+                    console.error(`[MangaScraper] Error fetching pages for chapter "${chapterToFetch.title}" (${chapterToFetch.url}):`, pageError);
+                    updatedManga.chapters[chIdx].pages = []; 
+                }
+                await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); 
+            }
+        }
 
       } catch (detailError) {
         console.error(`[MangaScraper] Error fetching details for manga ${manga.title} (ID: ${manga.id}, URL: ${manga.url}):`, detailError);

@@ -75,7 +75,7 @@ async function saveKomikuDataToDB(mangaData: MangaInfo[]) {
           for (const chapter of manga.chapters) {
             if(!chapter.url || !chapter.id) continue;
             const chapterDbId = chapter.id;
-            const existingChapter = await trx('chapters').where('chapter_url', chapter.url).first();
+            const existingChapter = await trx('chapters').where('id', chapterDbId).andWhere('manga_id', mangaDbId).first();
             
             const chapterPayload: { 
                 id: string;
@@ -112,17 +112,22 @@ async function saveKomikuDataToDB(mangaData: MangaInfo[]) {
             }
 
             if (chapter.pages && chapter.pages.length > 0) {
+              console.log(`[DB_SAVE_KOMIKU] Saving ${chapter.pages.length} pages for chapter ID: ${chapterDbId}`);
               await trx('pages').where('chapter_id', chapterDbId).del();
               const pagesToInsert = chapter.pages.map((page, index) => ({
                 chapter_id: chapterDbId,
-                page_number: index + 1, 
+                page_number: index + 1,
                 image_url: page.imageUrl,
                 created_at: new Date(),
                 updated_at: new Date(),
               }));
               if (pagesToInsert.length > 0) {
-                await trx('pages').insert(pagesToInsert).onConflict(['chapter_id', 'page_number']).ignore();
+                await trx('pages').insert(pagesToInsert);
+                console.log(`[DB_SAVE_KOMIKU] Successfully inserted ${pagesToInsert.length} pages for chapter ID: ${chapterDbId}`);
               }
+            } else {
+              await trx('pages').where('chapter_id', chapterDbId).del();
+              console.log(`[DB_SAVE_KOMIKU] No new pages for chapter ID: ${chapterDbId}, existing pages deleted.`);
             }
           }
         }
