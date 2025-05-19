@@ -6,6 +6,7 @@ interface MangaDetailPageProps {
   params: {
     id: string; // Ini adalah slug/ID manga dari URL
   };
+  // searchParams?: { [key: string]: string | string[] | undefined }; // Jika Anda butuh searchParams
 }
 
 interface ChapterInfo {
@@ -32,12 +33,12 @@ interface MangaDetailsFromDB {
 
 async function getMangaDetails(id: string): Promise<MangaDetailsFromDB | null> {
   try {
-    console.log(`[MangaDetailPage] getMangaDetails called with id: ${id}`);
+    // console.log(`[MangaDetailPage] getMangaDetails called with id: ${id}`); // ID di sini sudah benar
     const manga = await db('mangas').where({ id }).first();
-    console.log(`[MangaDetailPage] Manga fetched from DB for id ${id}:`, manga ? manga.id : 'NOT FOUND');
+    // console.log(`[MangaDetailPage] Manga fetched from DB for id ${id}:`, manga ? manga.id : 'NOT FOUND');
     
     if (!manga) {
-      console.log(`[MangaDetailPage] No manga found for id: ${id}, returning null.`);
+      // console.log(`[MangaDetailPage] No manga found for id: ${id}, returning null.`);
       return null;
     }
 
@@ -58,7 +59,9 @@ async function getMangaDetails(id: string): Promise<MangaDetailsFromDB | null> {
   }
 }
 
-export async function generateMetadata({ params: { id } }: MangaDetailPageProps) {
+export async function generateMetadata(props: MangaDetailPageProps) { // Diubah: terima props
+  const id = props.params.id; // Diubah: ambil id dari props
+  // console.log(`[generateMetadata] ID from props: ${id}`); 
   const manga = await getMangaDetails(id);
   if (!manga) {
     return { title: "Manga Not Found" };
@@ -69,8 +72,10 @@ export async function generateMetadata({ params: { id } }: MangaDetailPageProps)
    };
 }
 
-export default async function MangaDetailPage({ params: { id } }: MangaDetailPageProps) {
-  console.log(`[MangaDetailPage] Page component rendering for id: ${id}`);
+export default async function MangaDetailPage(props: MangaDetailPageProps) { // Diubah: terima props
+  const id = props.params.id; // Diubah: ambil id dari props
+
+  console.log(`[MangaDetailPage] Page component rendering for id (from props): ${id}`);
   const manga = await getMangaDetails(id);
 
   // Log data chapters yang diterima
@@ -83,11 +88,11 @@ export default async function MangaDetailPage({ params: { id } }: MangaDetailPag
   }
 
   if (!manga) {
-    console.log(`[MangaDetailPage] Manga not found after getMangaDetails for id: ${id}, calling notFound().`);
-    notFound(); // Ini akan menampilkan halaman 404 default dari Next.js
+    // console.log(`[MangaDetailPage] Manga not found after getMangaDetails for id: ${id}, calling notFound().`);
+    notFound(); 
   }
 
-  console.log(`[MangaDetailPage] Rendering page for manga: ${manga.title}`);
+  // console.log(`[MangaDetailPage] Rendering page for manga: ${manga.title}`);
   return (
     <div className="container mx-auto p-4 md:p-8">
       <div className="grid md:grid-cols-3 gap-8">
@@ -151,8 +156,8 @@ export default async function MangaDetailPage({ params: { id } }: MangaDetailPag
                         const title = chapter.title;
                         if (num !== null && title) return `Chapter ${num} - ${title}`;
                         if (num !== null) return `Chapter ${num}`;
-                        if (title) return title; // Jika hanya ada judul (chapter_number null)
-                        return 'Chapter'; // Fallback jika keduanya tidak ada
+                        if (title) return title; 
+                        return 'Chapter'; 
                       })()}
                     {/* </Link> */}
                   </h3>
@@ -162,6 +167,8 @@ export default async function MangaDetailPage({ params: { id } }: MangaDetailPag
                     </p>
                   )}
                 </div>
+
+                {/* Optional: Tombol Read bisa di uncomment nanti */}
                 {/* <Button variant="outline" size="sm" asChild>
                   <Link href={`/comics/${id}/chapter/${chapter.id}`}>Read</Link>
                 </Button> */}
